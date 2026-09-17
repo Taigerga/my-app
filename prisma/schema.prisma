@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+}
+
+enum ProductStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique @db.VarChar(191)
+  passwordHash String    @db.VarChar(255)
+  name         String?   @db.VarChar(100)
+  role         Role      @default(ADMIN)
+  articles     Article[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @db.VarChar(100)
+  slug        String    @unique @db.VarChar(191)
+  description String?   @db.Text
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id             String        @id @default(cuid())
+  name           String        @db.VarChar(191)
+  slug           String        @unique @db.VarChar(191)
+  shortDesc      String?       @db.VarChar(500)
+  description    String?       @db.Text
+  material       String?       @db.VarChar(191)
+  dimensions     String?       @db.VarChar(191)
+  color          String?       @db.VarChar(191)
+  specifications String?       @db.Text
+  status         ProductStatus @default(ACTIVE)
+  featured       Boolean       @default(false)
+  categoryId     String
+  category       Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images         ProductImage[]
+  inquiries      Inquiry[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([categoryId])
+  @@index([status])
+  @@fulltext([name, shortDesc])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String   @db.VarChar(500)
+  alt       String?  @db.VarChar(191)
+  sortOrder Int      @default(0)
+  isMain    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+model Portfolio {
+  id          String           @id @default(cuid())
+  title       String           @db.VarChar(191)
+  slug        String           @unique @db.VarChar(191)
+  client      String?          @db.VarChar(191)
+  location    String?          @db.VarChar(191)
+  year        Int?
+  description String?          @db.Text
+  featured    Boolean          @default(false)
+  images      PortfolioImage[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model PortfolioImage {
+  id          String    @id @default(cuid())
+  portfolioId String
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  url         String    @db.VarChar(500)
+  alt         String?   @db.VarChar(191)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([portfolioId])
+}
+
+model Article {
+  id          String        @id @default(cuid())
+  title       String        @db.VarChar(191)
+  slug        String        @unique @db.VarChar(191)
+  excerpt     String?       @db.VarChar(500)
+  content     String        @db.LongText
+  thumbnail   String?       @db.VarChar(500)
+  status      ArticleStatus @default(DRAFT)
+  publishedAt DateTime?
+  authorId    String?
+  author      User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status])
+}
+
+model Gallery {
+  id        String   @id @default(cuid())
+  title     String   @db.VarChar(191)
+  url       String   @db.VarChar(500)
+  category  String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+}
+
+model Inquiry {
+  id        String        @id @default(cuid())
+  name      String        @db.VarChar(191)
+  email     String        @db.VarChar(191)
+  whatsapp  String        @db.VarChar(30)
+  quantity  Int           @default(1)
+  message   String        @db.Text
+  status    InquiryStatus @default(NEW)
+  productId String?
+  product   Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([status])
+  @@index([productId])
+}
+
+model CompanyProfile {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(191)
+  tagline   String?  @db.VarChar(255)
+  description String? @db.Text
+  history   String?  @db.Text
+  vision    String?  @db.Text
+  mission   String?  @db.Text
+  phone     String?  @db.VarChar(30)
+  whatsapp  String?  @db.VarChar(30)
+  email     String?  @db.VarChar(191)
+  address   String?  @db.Text
+  mapsUrl   String?  @db.VarChar(500)
+  instagram String?  @db.VarChar(255)
+  facebook  String?  @db.VarChar(255)
+  linkedin  String?  @db.VarChar(255)
+  hours     String?  @db.VarChar(191)
+  logoUrl   String?  @db.VarChar(500)
+  heroImageUrl String? @db.VarChar(500)
+  updatedAt DateTime @updatedAt
+}

@@ -32,6 +32,21 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# uploads via dashboard admin (jangan commit file user)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# windows
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
+
+# logs
+*.log
 
 # vercel
 .vercel

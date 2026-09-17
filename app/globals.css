@@ -1,8 +1,24 @@
 @import "tailwindcss";
 
+/*
+ * Shape rule (dikunci satu skala):
+ * - tombol & pill: rounded-full
+ * - kartu & panel: rounded-2xl (16px)
+ * - input & elemen kecil: rounded-lg
+ * Satu aksen dikunci: pine (hijau pinus desaturasi). Netral: stone.
+ */
+@theme {
+  --color-cream: #fafaf9;
+  --color-ink: #1c1917;
+  --color-pine: #2e4b3f;
+  --color-pine-deep: #21382f;
+  --color-moss: #e9efe9;
+  --color-line: #e7e5e4;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fafaf9;
+  --foreground: #1c1917;
 }
 
 @theme inline {
@@ -12,15 +28,135 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+::selection {
+  background: #2e4b3f;
+  color: #fafaf9;
+}
+
+/* ---- Motion: hanya transform/opacity, hormati reduced-motion ---- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hero-rise {
+    from {
+      opacity: 0;
+      transform: translateY(28px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes hero-image-settle {
+    from {
+      opacity: 0;
+      transform: scale(1.04);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes drift {
+    from {
+      transform: translate3d(-14px, -26px, 0) rotate(-8deg);
+    }
+    to {
+      transform: translate3d(14px, 26px, 0) rotate(8deg);
+    }
+  }
+
+  @keyframes mini-fade {
+    0% {
+      opacity: 0;
+    }
+    4% {
+      opacity: 1;
+    }
+    30% {
+      opacity: 1;
+    }
+    36% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes marquee-x {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .anim-hero-rise {
+    opacity: 0;
+    animation: hero-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .anim-hero-image {
+    animation: hero-image-settle 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .anim-marquee {
+    animation: marquee-x 45s linear infinite;
+  }
+
+  .anim-mini-slide {
+    opacity: 0;
+    animation: mini-fade linear infinite;
+  }
+
+  .anim-drift {
+    animation: drift ease-in-out infinite alternate;
+    will-change: transform;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-hero-rise {
+    opacity: 1;
+  }
+  .anim-marquee {
+    animation: none;
+  }
+  .anim-drift {
+    animation: none;
+  }
+  .anim-mini-slide {
+    animation: none;
+  }
+  .anim-mini-slide:not(:first-child) {
+    display: none;
+  }
+  .anim-mini-slide:first-child {
+    opacity: 1;
+  }
+}
+
+.delay-1 {
+  animation-delay: 0.08s;
+}
+.delay-2 {
+  animation-delay: 0.16s;
+}
+.delay-3 {
+  animation-delay: 0.26s;
+}
+.delay-4 {
+  animation-delay: 0.38s;
 }
