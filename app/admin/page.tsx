@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getDashboardStats, getRecentInquiries } from "@/services/dashboard.service";
+import { getPendingApprovalCount, getRecentSubmissions } from "@/services/approval.service";
 
 export const metadata: Metadata = { title: "Dashboard Admin" };
 
@@ -12,9 +14,15 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function AdminDashboardPage() {
-  const [stats, recent] = await Promise.all([getDashboardStats(), getRecentInquiries()]);
+  const [stats, recent, pendingCount, submissions] = await Promise.all([
+    getDashboardStats(),
+    getRecentInquiries(),
+    getPendingApprovalCount(),
+    getRecentSubmissions(),
+  ]);
 
   const cards = [
+    { label: "Menunggu Approval", value: pendingCount, href: "/admin/approvals", highlight: pendingCount > 0 },
     { label: "Total Produk", value: stats.products },
     { label: "Total Portofolio", value: stats.portfolios },
     { label: "Total Artikel", value: stats.articles },
@@ -26,14 +34,53 @@ export default async function AdminDashboardPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-semibold text-stone-900">Dashboard</h1>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5" aria-label="Statistik">
-        {cards.map((c) => (
-          <div key={c.label} className="rounded-xl border border-line bg-white p-4">
-            <p className="text-2xl font-semibold text-ink">{c.value}</p>
-            <p className="mt-1 text-sm text-stone-500">{c.label}</p>
-          </div>
-        ))}
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-6" aria-label="Statistik">
+        {cards.map((c) => {
+          const inner = (
+            <>
+              <p className="text-2xl font-semibold text-ink">{c.value}</p>
+              <p className="mt-1 text-sm text-stone-500">{c.label}</p>
+            </>
+          );
+          const cls = `rounded-xl border p-4 ${"highlight" in c && c.highlight ? "border-amber-300 bg-amber-50" : "border-line bg-white"}`;
+          return "href" in c && c.href ? (
+            <Link key={c.label} href={c.href} className={`${cls} transition hover:border-amber-400`}>
+              {inner}
+            </Link>
+          ) : (
+            <div key={c.label} className={cls}>
+              {inner}
+            </div>
+          );
+        })}
       </section>
+
+      {submissions.length > 0 ? (
+        <section className="rounded-xl border border-line bg-white p-4" aria-label="Pengajuan terbaru">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-medium text-stone-900">Pengajuan Terbaru</h2>
+            <Link href="/admin/approvals" className="text-sm font-medium text-pine hover:underline">
+              Buka Approval
+            </Link>
+          </div>
+          <ul className="divide-y divide-stone-100">
+            {submissions.map((s) => (
+              <li key={`${s.kind}-${"id" in s ? s.id : ""}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <div>
+                  <p className="font-medium text-stone-900">
+                    <span className="mr-2 text-xs font-normal text-stone-400">{s.kind}</span>
+                    {s.label}
+                  </p>
+                  <p className="text-stone-500">oleh {s.createdBy.name ?? s.createdBy.email}</p>
+                </div>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${s.approvalStatus === "PENDING" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-700"}`}>
+                  {s.approvalStatus === "PENDING" ? "Menunggu" : "Ditolak"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="rounded-xl border border-line bg-white p-4" aria-label="Statistik inquiry">
         <h2 className="mb-3 font-medium text-stone-900">Statistik Inquiry</h2>

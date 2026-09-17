@@ -25,7 +25,7 @@ export function ProductForm({
   allowImages = false,
 }: {
   action: (prev: ActionState | undefined, fd: FormData) => Promise<ActionState>;
-  categories: { id: string; name: string }[];
+  categories: { id: string; name: string; approvalStatus?: string }[];
   defaults?: { [key: string]: string | boolean | undefined };
   submitLabel: string;
   allowImages?: boolean;
@@ -60,7 +60,7 @@ export function ProductForm({
           <select id="pf-cat" name="categoryId" required defaultValue={v("categoryId")} className={inputCls}>
             <option value="">Pilih kategori</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>{c.approvalStatus && c.approvalStatus !== "APPROVED" ? `${c.name} (perlu review)` : c.name}</option>
             ))}
           </select>
           <Err messages={state?.fieldErrors?.categoryId} />

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { InquirySchema } from "@/lib/validations";
+import { notifyAdmins } from "./workflow";
 
 export type InquiryResult =
   | { ok: true }
@@ -43,7 +44,7 @@ export async function createInquiryAction(
     if (!exists) return { ok: false, error: "Produk yang dipilih tidak ditemukan." };
   }
 
-  await db.inquiry.create({
+  const created = await db.inquiry.create({
     data: {
       name: parsed.data.name.trim(),
       email: parsed.data.email.toLowerCase().trim(),
@@ -54,6 +55,14 @@ export async function createInquiryAction(
     },
   });
 
+  await notifyAdmins({
+    type: "INQUIRY_NEW",
+    title: `Inquiry baru dari ${created.name}`,
+    message: `${created.quantity} pcs — ${created.message.slice(0, 120)}`,
+    link: "/admin/inquiries",
+  }).catch(() => undefined);
+
   revalidatePath("/admin");
+  revalidatePath("/worker");
   return { ok: true };
 }

@@ -6,6 +6,7 @@ import { GalleryUploadForm } from "@/components/admin/GalleryUploadForm";
 import { PageHeader, FlashMessage } from "@/components/admin/PageHeader";
 import { DeleteButton } from "@/components/admin/DeleteButton";
 import { AdminPagination } from "@/components/admin/AdminPagination";
+import { ApprovalBadge } from "@/components/worker/WorkerBits";
 
 export const metadata: Metadata = { title: "Kelola Galeri" };
 
@@ -51,8 +52,12 @@ export default async function AdminGalleryPage({
                 <li key={g.id} className="overflow-hidden rounded-2xl border border-line bg-white">
                   <span className="relative block aspect-[4/3] bg-stone-100">
                     <Image src={g.url} alt={g.title} fill loading="lazy" sizes="25vw" className="object-cover" />
+                    <span className="absolute left-1.5 top-1.5"><ApprovalBadge status={g.approvalStatus} /></span>
                   </span>
                   <form action={updateGalleryAction.bind(null, g.id)} className="space-y-1.5 p-2.5">
+                    {g.approvalStatus === "PENDING" && g.pendingTitle && g.pendingTitle !== g.title ? (
+                      <p className="truncate text-xs text-amber-700">Revisi menunggu: {g.pendingTitle}</p>
+                    ) : null}
                     <label className="sr-only" htmlFor={`gt-${g.id}`}>Judul</label>
                     <input id={`gt-${g.id}`} name="title" defaultValue={g.title} className="w-full rounded-lg border border-stone-200 px-2 py-1 text-sm" />
                     <span className="flex gap-1.5">

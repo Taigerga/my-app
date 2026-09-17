@@ -4,12 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { CategorySchema } from "@/lib/validations";
-import { formValues, requireAdmin, type ActionState } from "./helpers";
+import { formValues, requireAdmin, assertAdminCanModify, type ActionState } from "./helpers";
 
 const KEYS = ["name", "slug", "description"];
 
 export async function createCategoryAction(_prev: ActionState | undefined, formData: FormData): Promise<ActionState> {
-  await requireAdmin();
+  const session = await requireAdmin();
   const raw = formValues(formData, KEYS);
   const parsed = CategorySchema.safeParse(raw);
   if (!parsed.success) {
@@ -19,14 +19,21 @@ export async function createCategoryAction(_prev: ActionState | undefined, formD
     return { error: "Slug sudah dipakai kategori lain.", values: raw };
   }
   await db.category.create({
-    data: { name: parsed.data.name, slug: parsed.data.slug, description: parsed.data.description || null },
+    data: { name: parsed.data.name, slug: parsed.data.slug, description: parsed.data.description || null, createdById: session.user.id },
   });
   revalidatePath("/products");
   redirect("/admin/categories?msg=Kategori berhasil ditambahkan.");
 }
 
 export async function updateCategoryAction(id: string, _prev: ActionState | undefined, formData: FormData): Promise<ActionState> {
-  await requireAdmin();
+  const session = await requireAdmin();
+  const current = await db.category.findUnique({ where: { id }, select: { createdById: true, approvalStatus: true } });
+  if (!current) return { error: "Kategori tidak ditemukan." };
+  try {
+    await assertAdminCanModify({ ...current, adminId: session.user.id, kind: "edit" });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Akses ditolak." };
+  }
   const raw = formValues(formData, KEYS);
   const parsed = CategorySchema.safeParse(raw);
   if (!parsed.success) {
@@ -44,7 +51,14 @@ export async function updateCategoryAction(id: string, _prev: ActionState | unde
 }
 
 export async function deleteCategoryAction(id: string) {
-  await requireAdmin();
+  const session = await requireAdmin();
+  const row = await db.category.findUnique({ where: { id }, select: { createdById: true, approvalStatus: true } });
+  if (!row) throw new Error("Kategori tidak ditemukan.");
+  try {
+    await assertAdminCanModify({ ...row, adminId: session.user.id, kind: "delete" });
+  } catch (e) {
+    redirect(`/admin/categories?msg=${encodeURIComponent(e instanceof Error ? e.message : "Akses ditolak.")}`);
+  }
   const used = await db.product.count({ where: { categoryId: id } });
   if (used > 0) {
     redirect(`/admin/categories?msg=Kategori masih dipakai ${used} produk, tidak bisa dihapus.`);

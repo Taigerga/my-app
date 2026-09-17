@@ -5,6 +5,8 @@ import { deleteArticleAction } from "@/lib/actions/articles";
 import { PageHeader, FlashMessage } from "@/components/admin/PageHeader";
 import { DeleteButton } from "@/components/admin/DeleteButton";
 import { AdminPagination } from "@/components/admin/AdminPagination";
+import { ApprovalBadge, draftLock, DraftLockNote } from "@/components/worker/WorkerBits";
+import { auth } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Kelola Artikel" };
 
@@ -14,6 +16,8 @@ export default async function AdminArticlesPage({
   searchParams: Promise<{ status?: string; page?: string; msg?: string }>;
 }) {
   const sp = await searchParams;
+  const session = await auth();
+  const meId = session!.user.id;
   const status = sp.status ?? "";
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const { items, totalPages } = await adminListArticles({ status: status || undefined, page });
@@ -39,22 +43,36 @@ export default async function AdminArticlesPage({
         </p>
       ) : (
         <ul className="space-y-2">
-          {items.map((a) => (
+          {items.map((a) => {
+            const lock = draftLock(a, meId);
+            return (
             <li key={a.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-white p-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-stone-900">{a.title}</p>
-                <p className="mt-0.5 text-xs text-stone-500">
-                  /{a.slug} · {a.status === "PUBLISHED" ? "Tayang" : "Draf"} · {a.author?.name ?? "—"}
+                <p className="truncate font-medium text-stone-900">
+                  {a.title}
+                  <span className="ml-2"><ApprovalBadge status={a.approvalStatus} /></span>
                 </p>
+                <p className="mt-0.5 text-xs text-stone-500">
+                  /{a.slug} · {a.status === "PUBLISHED" ? "Tayang" : "Draf"} · {a.author?.name ?? "—"} · oleh {a.createdBy.name ?? a.createdBy.email}
+                </p>
+                {a.approvalStatus === "PENDING" && a.pendingTitle && a.pendingTitle !== a.title ? (
+                  <p className="mt-0.5 truncate text-xs text-amber-700">Revisi menunggu: {a.pendingTitle}</p>
+                ) : null}
+                {lock.locked ? <div className="mt-1"><DraftLockNote ownerName={lock.ownerName} orphan={lock.orphan} /></div> : null}
               </div>
+              {!lock.locked ? (
               <Link href={`/admin/articles/${a.id}`} className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:border-stone-500">
                 Edit
               </Link>
+              ) : null}
+              {!lock.locked || lock.orphan ? (
               <form action={deleteArticleAction.bind(null, a.id)}>
                 <DeleteButton confirmText="Hapus artikel ini?" />
               </form>
+              ) : null}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
       <AdminPagination

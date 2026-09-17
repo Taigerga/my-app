@@ -6,7 +6,7 @@ export async function getCompanyProfile() {
 
 export async function getFeaturedProducts(limit = 6) {
   return db.product.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", approvalStatus: "APPROVED" },
     orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
     take: limit,
     select: {
@@ -27,9 +27,9 @@ export async function getFeaturedProducts(limit = 6) {
 
 export async function getPublicCounts() {
   const [products, portfolios, articles] = await Promise.all([
-    db.product.count({ where: { status: "ACTIVE" } }),
+    db.product.count({ where: { status: "ACTIVE", approvalStatus: "APPROVED" } }),
     db.portfolio.count(),
-    db.article.count({ where: { status: "PUBLISHED" } }),
+    db.article.count({ where: { status: "PUBLISHED", approvalStatus: "APPROVED" } }),
   ]);
   return { products, portfolios, articles };
 }

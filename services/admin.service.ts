@@ -16,7 +16,9 @@ export async function adminListProducts({ q, status, page }: { q?: string; statu
       take: ADMIN_PAGE_SIZE,
       select: {
         id: true, name: true, slug: true, status: true, featured: true, updatedAt: true,
+        approvalStatus: true, createdById: true,
         category: { select: { name: true } },
+        createdBy: { select: { name: true, email: true, isActive: true } },
         _count: { select: { images: true, inquiries: true } },
       },
     }),
@@ -27,14 +29,14 @@ export async function adminListProducts({ q, status, page }: { q?: string; statu
 export async function adminGetProduct(id: string) {
   return db.product.findUnique({
     where: { id },
-    include: { images: { orderBy: { sortOrder: "asc" } }, category: true },
+    include: { images: { orderBy: { sortOrder: "asc" } }, category: true, createdBy: { select: { name: true, email: true, isActive: true } } },
   });
 }
 
 export async function adminListCategories() {
   return db.category.findMany({
     orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true, description: true, _count: { select: { products: true } } },
+    select: { id: true, name: true, slug: true, description: true, approvalStatus: true, pendingName: true, createdById: true, createdBy: { select: { name: true, email: true, isActive: true } }, _count: { select: { products: true } } },
   });
 }
 
@@ -69,7 +71,9 @@ export async function adminListArticles({ status, page }: { status?: string; pag
       take: ADMIN_PAGE_SIZE,
       select: {
         id: true, title: true, slug: true, status: true, publishedAt: true, updatedAt: true,
+        approvalStatus: true, pendingTitle: true, createdById: true,
         author: { select: { name: true } },
+        createdBy: { select: { name: true, email: true, isActive: true } },
       },
     }),
   ]);
@@ -77,7 +81,10 @@ export async function adminListArticles({ status, page }: { status?: string; pag
 }
 
 export async function adminGetArticle(id: string) {
-  return db.article.findUnique({ where: { id } });
+  return db.article.findUnique({
+    where: { id },
+    include: { createdBy: { select: { name: true, email: true, isActive: true } } },
+  });
 }
 
 export async function adminListGallery({ category, page }: { category?: string; page: number }) {
@@ -89,6 +96,11 @@ export async function adminListGallery({ category, page }: { category?: string; 
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * ADMIN_PAGE_SIZE,
       take: ADMIN_PAGE_SIZE,
+      select: {
+        id: true, title: true, url: true, category: true, createdAt: true,
+        approvalStatus: true, pendingTitle: true, createdById: true,
+        createdBy: { select: { name: true, email: true, isActive: true } },
+      },
     }),
   ]);
   return { items, total, totalPages: Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE)) };

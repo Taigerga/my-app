@@ -1,6 +1,13 @@
 import sanitizeHtml from "sanitize-html";
 
-/** Sanitasi HTML artikel server-side sebelum ditampilkan. */
+/** Sanitasi konten artikel SEBELUM disimpan (lebih ketat: tanpa img/figure). */
+export function cleanContent(dirty: string): string {
+  return sanitizeHtml(dirty, {
+    allowedTags: ["p", "br", "strong", "em", "u", "s", "a", "ul", "ol", "li", "h2", "h3", "h4", "blockquote"],
+    allowedAttributes: { a: ["href", "title"] },
+    allowedSchemes: ["http", "https", "mailto"],
+  });
+}
 export function sanitizeArticleHtml(dirty: string): string {
   return sanitizeHtml(dirty, {
     allowedTags: [

@@ -4,7 +4,13 @@ import { NextResponse } from "next/server";
 /** Optimistic check di edge. Pertahanan utama tetap di Server Component/Action via auth() + role. */
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  if (pathname.startsWith("/admin") && req.auth?.user?.role !== "ADMIN") {
+  const role = req.auth?.user?.role;
+  if (pathname.startsWith("/admin") && role !== "ADMIN") {
+    const url = new URL("/login", req.nextUrl.origin);
+    url.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(url);
+  }
+  if (pathname.startsWith("/worker") && role !== "ADMIN" && role !== "WORKER") {
     const url = new URL("/login", req.nextUrl.origin);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
@@ -13,5 +19,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/worker/:path*"],
 };

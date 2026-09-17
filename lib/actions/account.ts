@@ -7,10 +7,11 @@ import { db } from "@/lib/db";
 import { signOut } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { AccountSchema, ChangePasswordSchema } from "@/lib/validations";
-import { formValues, requireAdmin, type ActionState } from "./helpers";
+import { formValues, requireWorker, type ActionState } from "./helpers";
 
 export async function updateAccountAction(_prev: ActionState | undefined, formData: FormData): Promise<ActionState> {
-  const session = await requireAdmin();
+  const { session } = await requireWorker();
+  const redirectTo = typeof formData.get("redirectTo") === "string" && (formData.get("redirectTo") as string).startsWith("/") ? (formData.get("redirectTo") as string) : "/admin/company-profile";
   const raw = formValues(formData, ["name", "email"]);
   const parsed = AccountSchema.safeParse(raw);
   if (!parsed.success) {
@@ -30,11 +31,13 @@ export async function updateAccountAction(_prev: ActionState | undefined, formDa
   }
 
   revalidatePath("/admin", "layout");
-  redirect("/admin/company-profile?msg=Profil akun berhasil diperbarui.");
+  revalidatePath("/worker", "layout");
+  redirect(`${redirectTo}?msg=Profil akun berhasil diperbarui.`);
 }
 
 export async function changePasswordAction(_prev: ActionState | undefined, formData: FormData): Promise<ActionState> {
-  const session = await requireAdmin();
+  const { session } = await requireWorker();
+  const redirectTo = typeof formData.get("redirectTo") === "string" && (formData.get("redirectTo") as string).startsWith("/") ? (formData.get("redirectTo") as string) : "/admin/company-profile";
   const parsed = ChangePasswordSchema.safeParse({
     currentPassword: formData.get("currentPassword"),
     newPassword: formData.get("newPassword"),
@@ -59,5 +62,5 @@ export async function changePasswordAction(_prev: ActionState | undefined, formD
     data: { passwordHash: await bcrypt.hash(parsed.data.newPassword, 10) },
   });
 
-  redirect("/admin/company-profile?msg=Password berhasil diganti. Sesi Anda tetap aktif.");
+  redirect(`${redirectTo}?msg=Password berhasil diganti. Sesi Anda tetap aktif.`);
 }

@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { getStorage } from "@/lib/storage";
 import { saveUploads } from "@/lib/upload";
 import { ProductSchema } from "@/lib/validations";
-import { formValues, stringValues, requireAdmin, type ActionState } from "./helpers";
+import { formValues, stringValues, requireAdmin, assertAdminCanModify, type ActionState } from "./helpers";
 
 const KEYS = [
   "name", "slug", "categoryId", "shortDesc", "description",
@@ -18,7 +18,7 @@ function slugTaken(slug: string, excludeId?: string) {
 }
 
 export async function createProductAction(_prev: ActionState | undefined, formData: FormData): Promise<ActionState> {
-  await requireAdmin();
+  const session = await requireAdmin();
   const raw = { ...formValues(formData, KEYS), featured: formData.get("featured") === "on" };
   const values = stringValues(formData, KEYS);
   const parsed = ProductSchema.safeParse(raw);
@@ -47,6 +47,8 @@ export async function createProductAction(_prev: ActionState | undefined, formDa
       specifications: parsed.data.specifications || null,
       status: parsed.data.status,
       featured: parsed.data.featured,
+      approvalStatus: "APPROVED",
+      createdById: session.user.id,
     },
   });
 
@@ -78,7 +80,14 @@ export async function updateProductAction(
   _prev: ActionState | undefined,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAdmin();
+  const session = await requireAdmin();
+  const current = await db.product.findUnique({ where: { id }, select: { createdById: true, approvalStatus: true } });
+  if (!current) return { error: "Produk tidak ditemukan." };
+  try {
+    await assertAdminCanModify({ ...current, adminId: session.user.id, kind: "edit" });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Akses ditolak." };
+  }
   const raw = { ...formValues(formData, KEYS), featured: formData.get("featured") === "on" };
   const values = stringValues(formData, KEYS);
   const parsed = ProductSchema.safeParse(raw);
@@ -113,7 +122,14 @@ export async function updateProductAction(
 }
 
 export async function deleteProductAction(id: string) {
-  await requireAdmin();
+  const session = await requireAdmin();
+  const row = await db.product.findUnique({ where: { id }, select: { createdById: true, approvalStatus: true } });
+  if (!row) throw new Error("Produk tidak ditemukan.");
+  try {
+    await assertAdminCanModify({ ...row, adminId: session.user.id, kind: "delete" });
+  } catch (e) {
+    redirect(`/admin/products?msg=${encodeURIComponent(e instanceof Error ? e.message : "Akses ditolak.")}`);
+  }
   const images = await db.productImage.findMany({ where: { productId: id }, select: { url: true } });
   await db.product.delete({ where: { id } });
   const storage = getStorage();
@@ -124,12 +140,17 @@ export async function deleteProductAction(id: string) {
 }
 
 export async function addProductImagesAction(productId: string, formData: FormData): Promise<void> {
-  await requireAdmin();
+  const session = await requireAdmin();
   const product = await db.product.findUnique({
     where: { id: productId },
-    select: { id: true, slug: true, name: true, _count: { select: { images: true } } },
+    select: { id: true, slug: true, name: true, createdById: true, approvalStatus: true, _count: { select: { images: true } } },
   });
   if (!product) redirect(`/admin/products/${productId}?msg=${encodeURIComponent("Produk tidak ditemukan.")}`);
+  try {
+    await assertAdminCanModify({ createdById: product.createdById, approvalStatus: product.approvalStatus, adminId: session.user.id, kind: "edit" });
+  } catch (e) {
+    redirect(`/admin/products/${productId}?msg=${encodeURIComponent(e instanceof Error ? e.message : "Akses ditolak.")}`);
+  }
 
   const files = formData.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) redirect(`/admin/products/${productId}?msg=${encodeURIComponent("Pilih minimal satu gambar.")}`);
@@ -158,7 +179,14 @@ export async function addProductImagesAction(productId: string, formData: FormDa
 }
 
 export async function setMainProductImageAction(productId: string, imageId: string) {
-  await requireAdmin();
+  const session = await requireAdmin();
+  const owner = await db.product.findUnique({ where: { id: productId }, select: { createdById: true, approvalStatus: true } });
+  if (!owner) throw new Error("Produk tidak ditemukan.");
+  try {
+    await assertAdminCanModify({ ...owner, adminId: session.user.id, kind: "edit" });
+  } catch (e) {
+    redirect(`/admin/products/${productId}?msg=${encodeURIComponent(e instanceof Error ? e.message : "Akses ditolak.")}`);
+  }
   await db.$transaction([
     db.productImage.updateMany({ where: { productId }, data: { isMain: false } }),
     db.productImage.update({ where: { id: imageId }, data: { isMain: true } }),
@@ -169,7 +197,14 @@ export async function setMainProductImageAction(productId: string, imageId: stri
 }
 
 export async function deleteProductImageAction(productId: string, imageId: string) {
-  await requireAdmin();
+  const session = await requireAdmin();
+  const owner = await db.product.findUnique({ where: { id: productId }, select: { createdById: true, approvalStatus: true } });
+  if (!owner) throw new Error("Produk tidak ditemukan.");
+  try {
+    await assertAdminCanModify({ ...owner, adminId: session.user.id, kind: "edit" });
+  } catch (e) {
+    redirect(`/admin/products/${productId}?msg=${encodeURIComponent(e instanceof Error ? e.message : "Akses ditolak.")}`);
+  }
   const image = await db.productImage.findUnique({ where: { id: imageId }, select: { url: true, productId: true, isMain: true } });
   if (!image || image.productId !== productId) throw new Error("Gambar tidak ditemukan.");
   await db.productImage.delete({ where: { id: imageId } });

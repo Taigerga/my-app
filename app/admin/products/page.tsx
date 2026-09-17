@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import { adminListProducts } from "@/services/admin.service";
 import { deleteProductAction } from "@/lib/actions/products";
 import { PageHeader, FlashMessage } from "@/components/admin/PageHeader";
 import { DeleteButton } from "@/components/admin/DeleteButton";
 import { AdminPagination } from "@/components/admin/AdminPagination";
+import { ApprovalBadge, draftLock, DraftLockNote } from "@/components/worker/WorkerBits";
 
 export const metadata: Metadata = { title: "Kelola Produk" };
 
@@ -16,6 +18,8 @@ export default async function AdminProductsPage({
   searchParams: Promise<{ q?: string; status?: string; page?: string; msg?: string }>;
 }) {
   const sp = await searchParams;
+  const session = await auth();
+  const meId = session!.user.id;
   const q = (sp.q ?? "").trim();
   const status = sp.status ?? "";
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
@@ -66,25 +70,34 @@ export default async function AdminProductsPage({
         </p>
       ) : (
         <ul className="space-y-2">
-          {items.map((p) => (
+          {items.map((p) => {
+            const lock = draftLock(p, meId);
+            return (
             <li key={p.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-white p-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-stone-900">
                   {p.name}
                   {p.featured ? <span className="ml-2 rounded-full bg-moss px-2 py-0.5 text-xs text-pine-deep">Unggulan</span> : null}
+                  <span className="ml-2"><ApprovalBadge status={p.approvalStatus} /></span>
                 </p>
                 <p className="mt-0.5 text-xs text-stone-500">
-                  {p.category.name} · {STATUS_LABEL[p.status]} · {p._count.images} foto · {p._count.inquiries} inquiry
+                  {p.category.name} · {STATUS_LABEL[p.status]} · {p._count.images} foto · {p._count.inquiries} inquiry · oleh {p.createdBy.name ?? p.createdBy.email}
                 </p>
+                {lock.locked ? <div className="mt-1"><DraftLockNote ownerName={lock.ownerName} orphan={lock.orphan} /></div> : null}
               </div>
+              {!lock.locked ? (
               <Link href={`/admin/products/${p.id}`} className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:border-stone-500">
                 Edit
               </Link>
+              ) : null}
+              {!lock.locked || lock.orphan ? (
               <form action={deleteProductAction.bind(null, p.id)}>
                 <DeleteButton confirmText="Hapus produk ini beserta fotonya?" />
               </form>
+              ) : null}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
       <AdminPagination page={page} totalPages={totalPages} href={href} />

@@ -4,9 +4,9 @@ import { db } from "@/lib/db";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const [products, portfolios, articles] = await Promise.all([
-    db.product.findMany({ where: { status: "ACTIVE" }, select: { slug: true, updatedAt: true } }),
+    db.product.findMany({ where: { status: "ACTIVE", approvalStatus: "APPROVED" }, select: { slug: true, updatedAt: true } }),
     db.portfolio.findMany({ select: { slug: true, updatedAt: true } }),
-    db.article.findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } }),
+    db.article.findMany({ where: { status: "PUBLISHED", approvalStatus: "APPROVED" }, select: { slug: true, updatedAt: true } }),
   ]);
 
   return [

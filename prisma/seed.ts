@@ -6,6 +6,8 @@ const img = (seed: string) => `https://picsum.photos/seed/${seed}/800/600`;
 
 async function main() {
   // Bersihkan urutan aman (child dulu)
+  await prisma.notification.deleteMany();
+  await prisma.activityLog.deleteMany();
   await prisma.inquiry.deleteMany();
   await prisma.productImage.deleteMany();
   await prisma.product.deleteMany();
@@ -27,6 +29,15 @@ async function main() {
     },
   });
 
+  const worker = await prisma.user.create({
+    data: {
+      email: "worker@furniture.local",
+      passwordHash: await bcrypt.hash("Worker123!", 10),
+      name: "Pekerja Demo",
+      role: "WORKER",
+    },
+  });
+
   const categories = await Promise.all(
     [
       { name: "Kursi", slug: "kursi", description: "Kursi kayu & custom" },
@@ -35,7 +46,7 @@ async function main() {
       { name: "Sofa", slug: "sofa", description: "Sofa ruang tamu & kantor" },
       { name: "Bedroom", slug: "bedroom", description: "Dipan, nakas, wardrobe" },
       { name: "Office", slug: "office", description: "Furniture kantor" },
-    ].map((c) => prisma.category.create({ data: c })),
+    ].map((c) => prisma.category.create({ data: { ...c, createdById: admin.id } })),
   );
   const bySlug = Object.fromEntries(categories.map((c) => [c.slug, c]));
 
@@ -67,6 +78,8 @@ async function main() {
         specifications: `Material: ${p.material}\nDimensi: ${p.dimensions}\nWarna: ${p.color}`,
         status: "ACTIVE",
         featured: p.featured ?? false,
+        approvalStatus: "APPROVED",
+        createdById: admin.id,
         categoryId: bySlug[p.cat].id,
         images: {
           create: [0, 1].map((i) => ({
@@ -108,6 +121,8 @@ async function main() {
         status: "PUBLISHED",
         publishedAt: new Date(),
         authorId: admin.id,
+        createdById: admin.id,
+        approvalStatus: "APPROVED",
       },
       {
         title: "Panduan Memilih Meja Kerja yang Tepat",
@@ -118,6 +133,8 @@ async function main() {
         status: "PUBLISHED",
         publishedAt: new Date(),
         authorId: admin.id,
+        createdById: admin.id,
+        approvalStatus: "APPROVED",
       },
       {
         title: "Draf: Tren Warna Furniture 2026",
@@ -126,15 +143,62 @@ async function main() {
         content: "<p>Draf demo, status DRAFT.</p>",
         status: "DRAFT",
         authorId: admin.id,
+        createdById: admin.id,
       },
     ],
   });
+
+  // Contoh hasil kerja worker: 1 produk + 1 artikel menunggu approval admin.
+  const workerProduct = await prisma.product.create({
+    data: {
+      name: "Bangku Cafe Rotan (Contoh Worker)",
+      slug: "bangku-cafe-rotan-contoh-worker",
+      shortDesc: "Contoh pengajuan worker — menunggu approval admin.",
+      description: "Bangku cafe dari rotan, dibuat oleh akun worker demo.",
+      material: "Rotan + jati",
+      dimensions: "40x40x65 cm",
+      color: "Natural",
+      status: "DRAFT",
+      approvalStatus: "PENDING",
+      submittedAt: new Date(),
+      createdById: worker.id,
+      categoryId: bySlug["kursi"].id,
+      images: {
+        create: [{ url: img("worker-bangku-cafe"), alt: "Bangku cafe rotan", sortOrder: 0, isMain: true }],
+      },
+    },
+  });
+  await prisma.article.create({
+    data: {
+      title: "Contoh Artikel Worker (Pending)",
+      slug: "contoh-artikel-worker-pending",
+      excerpt: "Contoh pengajuan artikel worker.",
+      content: "<p>Artikel contoh dari akun worker, menunggu approval.</p>",
+      status: "DRAFT",
+      approvalStatus: "PENDING",
+      submittedAt: new Date(),
+      authorId: worker.id,
+      createdById: worker.id,
+    },
+  });
+  await prisma.notification.create({
+    data: {
+      userId: admin.id,
+      type: "SUBMITTED",
+      title: "Pengajuan baru dari Pekerja Demo",
+      message: "1 produk dan 1 artikel menunggu review approval.",
+      link: "/admin/approvals",
+    },
+  });
+  void workerProduct;
 
   await prisma.gallery.createMany({
     data: ["produk", "workshop", "kantor", "proyek", "kegiatan", "produk"].map((cat, i) => ({
       title: `Galeri ${cat} ${i + 1}`,
       url: img(`galeri-${cat}-${i}`),
       category: cat,
+      approvalStatus: "APPROVED",
+      createdById: admin.id,
     })),
   });
 
@@ -171,7 +235,7 @@ async function main() {
     },
   });
 
-  console.log("Seed OK: admin admin@furniture.local / Admin123!");
+  console.log("Seed OK: admin admin@furniture.local / Admin123! | worker worker@furniture.local / Worker123!");
 }
 
 main()

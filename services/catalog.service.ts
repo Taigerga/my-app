@@ -4,8 +4,16 @@ export const PRODUCT_PAGE_SIZE = 12;
 
 export async function getCategories() {
   return db.category.findMany({
+    where: { approvalStatus: "APPROVED" },
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true, _count: { select: { products: true } } },
+  });
+}
+
+export async function getCategoriesForAdmin() {
+  return db.category.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, slug: true, approvalStatus: true },
   });
 }
 
@@ -20,6 +28,7 @@ export async function listProducts({
 }) {
   const where = {
     status: "ACTIVE" as const,
+    approvalStatus: "APPROVED" as const,
     ...(categorySlug ? { category: { slug: categorySlug } } : {}),
     ...(query
       ? {
@@ -54,7 +63,7 @@ export async function listProducts({
 
 export async function getProductBySlug(slug: string) {
   return db.product.findFirst({
-    where: { slug, status: "ACTIVE" },
+    where: { slug, status: "ACTIVE", approvalStatus: "APPROVED" },
     select: {
       id: true,
       name: true,
@@ -73,7 +82,7 @@ export async function getProductBySlug(slug: string) {
 
 export async function getRelatedProducts(categorySlug: string, excludeId: string, limit = 4) {
   return db.product.findMany({
-    where: { status: "ACTIVE", category: { slug: categorySlug }, id: { not: excludeId } },
+    where: { status: "ACTIVE", approvalStatus: "APPROVED", category: { slug: categorySlug }, id: { not: excludeId } },
     orderBy: { createdAt: "desc" },
     take: limit,
     select: {
@@ -89,7 +98,7 @@ export async function getRelatedProducts(categorySlug: string, excludeId: string
 
 export async function getAllActiveProducts() {
   return db.product.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", approvalStatus: "APPROVED" },
     orderBy: { name: "asc" },
     select: { id: true, name: true, slug: true },
   });

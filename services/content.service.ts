@@ -33,7 +33,7 @@ export async function getPortfolioBySlug(slug: string) {
 
 export async function listPublishedArticles() {
   return db.article.findMany({
-    where: { status: "PUBLISHED" },
+    where: { status: "PUBLISHED", approvalStatus: "APPROVED" },
     orderBy: { publishedAt: "desc" },
     select: {
       id: true,
@@ -49,7 +49,7 @@ export async function listPublishedArticles() {
 
 export async function getArticleBySlug(slug: string) {
   return db.article.findFirst({
-    where: { slug, status: "PUBLISHED" },
+    where: { slug, status: "PUBLISHED", approvalStatus: "APPROVED" },
     select: {
       id: true,
       title: true,
@@ -65,6 +65,7 @@ export async function getArticleBySlug(slug: string) {
 
 export async function listGallery() {
   return db.gallery.findMany({
+    where: { approvalStatus: "APPROVED" },
     orderBy: { createdAt: "desc" },
     select: { id: true, title: true, url: true, category: true },
   });

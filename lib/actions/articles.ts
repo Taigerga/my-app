@@ -2,23 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import sanitizeHtml from "sanitize-html";
 import { db } from "@/lib/db";
 import { getStorage } from "@/lib/storage";
 import { saveUploads } from "@/lib/upload";
+import { cleanContent } from "@/lib/sanitize";
 import { ArticleSchema } from "@/lib/validations";
-import { formValues, requireAdmin, type ActionState } from "./helpers";
+import { formValues, requireAdmin, assertAdminCanModify, type ActionState } from "./helpers";
 
 const KEYS = ["title", "slug", "excerpt", "content", "status"];
-
-function cleanContent(dirty: string): string {
-  const clean = sanitizeHtml(dirty, {
-    allowedTags: ["p", "br", "strong", "em", "u", "s", "a", "ul", "ol", "li", "h2", "h3", "h4", "blockquote"],
-    allowedAttributes: { a: ["href", "title"] },
-    allowedSchemes: ["http", "https", "mailto"],
-  });
-  return clean;
-}
 
 export async function createArticleAction(_prev: ActionState | undefined, formData: FormData): Promise<ActionState> {
   const session = await requireAdmin();
@@ -52,6 +43,8 @@ export async function createArticleAction(_prev: ActionState | undefined, formDa
       status: parsed.data.status,
       publishedAt: parsed.data.status === "PUBLISHED" ? new Date() : null,
       authorId: session.user.id,
+      createdById: session.user.id,
+      approvalStatus: "APPROVED",
     },
   });
 
@@ -61,7 +54,7 @@ export async function createArticleAction(_prev: ActionState | undefined, formDa
 }
 
 export async function updateArticleAction(id: string, _prev: ActionState | undefined, formData: FormData): Promise<ActionState> {
-  await requireAdmin();
+  const session = await requireAdmin();
   const raw = formValues(formData, KEYS);
   const parsed = ArticleSchema.safeParse(raw);
   if (!parsed.success) {
@@ -71,8 +64,13 @@ export async function updateArticleAction(id: string, _prev: ActionState | undef
     return { error: "Slug sudah dipakai artikel lain.", values: raw };
   }
 
-  const current = await db.article.findUnique({ where: { id }, select: { thumbnail: true, status: true } });
+  const current = await db.article.findUnique({ where: { id }, select: { thumbnail: true, status: true, createdById: true, approvalStatus: true } });
   if (!current) return { error: "Artikel tidak ditemukan." };
+  try {
+    await assertAdminCanModify({ createdById: current.createdById, approvalStatus: current.approvalStatus, adminId: session.user.id, kind: "edit" });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Akses ditolak." };
+  }
 
   const files = formData.getAll("thumbnail").filter((f): f is File => f instanceof File && f.size > 0);
   let thumbnail = current.thumbnail;
@@ -107,8 +105,14 @@ export async function updateArticleAction(id: string, _prev: ActionState | undef
 }
 
 export async function deleteArticleAction(id: string) {
-  await requireAdmin();
-  const article = await db.article.findUnique({ where: { id }, select: { thumbnail: true } });
+  const session = await requireAdmin();
+  const article = await db.article.findUnique({ where: { id }, select: { thumbnail: true, createdById: true, approvalStatus: true } });
+  if (!article) throw new Error("Artikel tidak ditemukan.");
+  try {
+    await assertAdminCanModify({ createdById: article.createdById, approvalStatus: article.approvalStatus, adminId: session.user.id, kind: "delete" });
+  } catch (e) {
+    redirect(`/admin/articles?msg=${encodeURIComponent(e instanceof Error ? e.message : "Akses ditolak.")}`);
+  }
   if (article?.thumbnail) await getStorage().remove(article.thumbnail).catch(() => undefined);
   await db.article.delete({ where: { id } });
   revalidatePath("/articles");

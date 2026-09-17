@@ -26,10 +26,11 @@ function FieldError({ messages }: { messages?: string[] }) {
   );
 }
 
-function ProfileForm({ user }: { user: { name: string | null; email: string } }) {
+function ProfileForm({ user, redirectTo }: { user: { name: string | null; email: string }; redirectTo: string }) {
   const [state, action, pending] = useActionState(updateAccountAction, undefined);
   return (
     <form action={action} className="space-y-3">
+      <input type="hidden" name="redirectTo" value={redirectTo} />
       <div>
         <label htmlFor="ac-name" className={labelCls}>Nama admin</label>
         <input id="ac-name" name="name" required defaultValue={state?.values?.name ?? user.name ?? ""} className={inputCls} />
@@ -49,10 +50,11 @@ function ProfileForm({ user }: { user: { name: string | null; email: string } })
   );
 }
 
-function PasswordForm() {
+function PasswordForm({ redirectTo }: { redirectTo: string }) {
   const [state, action, pending] = useActionState(changePasswordAction, undefined);
   return (
     <form action={action} className="space-y-3 border-t border-line pt-4">
+      <input type="hidden" name="redirectTo" value={redirectTo} />
       <h3 className="text-sm font-medium text-stone-800">Ganti Password</h3>
       <div>
         <label htmlFor="pw-cur" className={labelCls}>Password saat ini</label>
@@ -76,14 +78,14 @@ function PasswordForm() {
   );
 }
 
-export function AccountForm({ user }: { user: { name: string | null; email: string } }) {
+export function AccountForm({ user, redirectTo = "/admin/company-profile" }: { user: { name: string | null; email: string }; redirectTo?: string }) {
   return (
     <section className="rounded-2xl border border-line bg-white p-5" aria-label="Profil akun">
       <h2 className="font-medium text-stone-900">Profil Akun</h2>
-      <p className="mb-4 mt-0.5 text-xs text-stone-500">Kredensial login dashboard admin.</p>
-      <ProfileForm user={user} />
+      <p className="mb-4 mt-0.5 text-xs text-stone-500">Kredensial login dashboard.</p>
+      <ProfileForm user={user} redirectTo={redirectTo} />
       <div className="mt-2">
-        <PasswordForm />
+        <PasswordForm redirectTo={redirectTo} />
       </div>
     </section>
   );

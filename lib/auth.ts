@@ -19,7 +19,7 @@ declare module "next-auth" {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
   pages: { signIn: "/login" },
   providers: [
     Credentials({
@@ -34,7 +34,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await db.user.findUnique({
           where: { email: parsed.data.email.toLowerCase() },
         });
-        if (!user) return null;
+        if (!user || !user.isActive) return null;
         const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
         if (!valid) return null;
         return { id: user.id, email: user.email, name: user.name, role: user.role };
@@ -43,8 +43,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     authorized({ auth: session, request }) {
-      if (request.nextUrl.pathname.startsWith("/admin")) {
+      const pathname = request.nextUrl.pathname;
+      if (pathname.startsWith("/admin")) {
         return session?.user?.role === "ADMIN";
+      }
+      if (pathname.startsWith("/worker")) {
+        return session?.user?.role === "ADMIN" || session?.user?.role === "WORKER";
       }
       return true;
     },

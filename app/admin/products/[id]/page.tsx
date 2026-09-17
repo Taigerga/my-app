@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
 import {
   updateProductAction,
   addProductImagesAction,
@@ -9,10 +8,13 @@ import {
   deleteProductImageAction,
 } from "@/lib/actions/products";
 import { adminGetProduct } from "@/services/admin.service";
+import { getCategoriesForAdmin } from "@/services/catalog.service";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { PageHeader, FlashMessage } from "@/components/admin/PageHeader";
 import { DeleteButton } from "@/components/admin/DeleteButton";
 import { DropzoneInput } from "@/components/admin/DropzoneInput";
+import { ApprovalBadge, draftLock } from "@/components/worker/WorkerBits";
+import { auth } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Edit Produk" };
 
@@ -43,9 +45,14 @@ export default async function EditProductPage({
 }) {
   const { id } = await params;
   const sp = await searchParams;
+  const session = await auth();
   const product = await adminGetProduct(id);
   if (!product) notFound();
-  const categories = await db.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const lock = draftLock(
+    { createdById: product.createdById, approvalStatus: product.approvalStatus, createdBy: product.createdBy },
+    session!.user.id,
+  );
+  const categories = await getCategoriesForAdmin();
 
   const updateAction = updateProductAction.bind(null, id);
 
@@ -53,7 +60,14 @@ export default async function EditProductPage({
     <div className="max-w-3xl space-y-6">
       <PageHeader title={`Edit: ${product.name}`} />
       {sp.msg ? <FlashMessage message={sp.msg} /> : null}
-
+      <p><ApprovalBadge status={product.approvalStatus} /></p>
+      {lock.locked ? (
+        <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Draf milik {lock.ownerName} — hanya pemilik yang boleh mengubah. {lock.orphan ? "Akun pemilik nonaktif: Anda boleh menghapus produk ini dari daftar." : "Minta pemilik yang mengubah, atau tunggu sampai diajukan untuk review."}
+        </p>
+      ) : null}
+      {!lock.locked ? (
+      <>
       <ProductForm
         action={updateAction}
         categories={categories}
@@ -113,6 +127,8 @@ export default async function EditProductPage({
           <p className="mt-3 text-sm text-stone-500">Sudah 8/8 foto. Hapus salah satu untuk menambah.</p>
         )}
       </section>
+      </>
+      ) : null}
     </div>
   );
 }
